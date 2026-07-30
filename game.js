@@ -41,6 +41,7 @@
   const save = loadSave();
   const state = { mode:'one', selected:0, p1:0, p2:1, currentScreen:'bootScreen', openingStarted:false };
   let race = null;
+  let requestTrackPrefetch=()=>{};
   let raceFrame = 0;
   let raceSession = 0;
   let countdownTimers = [];
@@ -148,7 +149,7 @@
     $$('.character-chip').forEach((chip,i) => { chip.classList.toggle('selected', i === state.selected); chip.setAttribute('aria-selected', i === state.selected); });
     const trophyWrap = $('#heroTrophies'); trophyWrap.innerHTML = '';
     for (let i=0;i<5;i++) { const pip=document.createElement('i'); if(i < save.trophies[c.id]) pip.className='won'; trophyWrap.append(pip); }
-    if (withVoice) sfx(`select-${c.id}`, .9);
+    requestTrackPrefetch(c);if (withVoice) sfx(`select-${c.id}`, .9);
   }
   function cycleSelected(delta) {
     state.selected = (state.selected + delta + CHARACTERS.length) % CHARACTERS.length;
@@ -163,7 +164,7 @@
     const p1 = CHARACTERS[state.p1], p2 = CHARACTERS[state.p2];
     $('#p1Portrait').src = p1.portraitImage; $('#p1Portrait').alt = p1.name; $('#p1Name').textContent = p1.name.toUpperCase();
     $('#p2Portrait').src = p2.portraitImage; $('#p2Portrait').alt = p2.name; $('#p2Name').textContent = p2.name.toUpperCase();
-    if (withVoice) sfx(`select-${CHARACTERS[state[player]].id}`, .9);
+    requestTrackPrefetch(p1);if (withVoice) sfx(`select-${CHARACTERS[state[player]].id}`, .9);
   }
   function cyclePlayer(player, delta) {
     const other = player === 'p1' ? 'p2' : 'p1';
@@ -212,15 +213,15 @@
       this.host=host; this.renderer=null; this.scene=null; this.camera=null; this.active=false;
       this.modelCache=new Map();this.trackCache=new Map();this.trackTextureCache=new Map();
       this.trainRoots={};this.cogMeshes=[];this.smoke=[];this.curves=null;this.syntheticObjects=[];
-      this.worldScale=.12;this.loader=null;this.textureLoader=null;this.smokeTexture=null;
+      this.worldScale=.12;this.loader=null;this.textureLoader=null;this.smokeTexture=null;this.prefetchTimer=0;this.mobileGPU=/iPad|iPhone|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&screen.width<1400);
     }
     init() {
       if(this.renderer)return true;
       if(!window.THREE||!THREE.OBJLoader)return false;
       try {
         this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
-        this.renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-        this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+        this.renderer.setPixelRatio(Math.min(this.mobileGPU?1.25:2,window.devicePixelRatio||1));
+        this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=this.mobileGPU?THREE.BasicShadowMap:THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding=THREE.sRGBEncoding;
         this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.08;
         this.host.appendChild(this.renderer.domElement);
@@ -240,13 +241,14 @@
     start(currentRace) {
       if(!this.init())return Promise.resolve(false);this.buildScene(currentRace);this.resize();return this.trackReadyPromise||Promise.resolve(true);
     }
+    prefetch(c){if(!this.init())return;clearTimeout(this.prefetchTimer);this.prefetchTimer=setTimeout(()=>{this.loadTrackPrototype(c).catch(()=>{});this.loadEngine(c).catch(()=>{})},220)}
     buildScene(currentRace) {
       this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x7bc8ed);this.scene.fog=new THREE.Fog(0xa9d8e7,34,120);
       this.camera=new THREE.PerspectiveCamera(46,1,.1,260);this.camera.position.set(9,8,20);
       this.trainRoots={};this.cogMeshes=[];this.smoke=[];this.curves=null;this.cameraProfile=null;this.originalTrack=null;this.trackCameraReady=false;
       const hemi=new THREE.HemisphereLight(0xdff6ff,0x35542b,1.4);this.scene.add(hemi);
       const sun=new THREE.DirectionalLight(0xfff4d7,2.15);sun.position.set(-20,30,18);sun.castShadow=true;
-      sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-18;sun.shadow.camera.right=18;sun.shadow.camera.top=18;sun.shadow.camera.bottom=-18;this.sun=sun;this.sunTarget=new THREE.Object3D();this.scene.add(this.sunTarget);sun.target=this.sunTarget;this.scene.add(sun);
+      sun.shadow.mapSize.set(this.mobileGPU?512:1024,this.mobileGPU?512:1024);sun.shadow.camera.left=-18;sun.shadow.camera.right=18;sun.shadow.camera.top=18;sun.shadow.camera.bottom=-18;this.sun=sun;this.sunTarget=new THREE.Object3D();this.scene.add(this.sunTarget);sun.target=this.sunTarget;this.scene.add(sun);
       this.buildScenicBackground(currentRace.p1.char);
       const beforeWorld=new Set(this.scene.children);this.buildWorld(currentRace.p1.char,currentRace.target);
       this.syntheticObjects=this.scene.children.filter(o=>!beforeWorld.has(o)&&!this.cogMeshes.includes(o));
@@ -264,15 +266,15 @@
     }
     ensureOfflineBundle(name){window.__GGT_BUNDLES=window.__GGT_BUNDLES||{};if(window.__GGT_BUNDLES[name])return window.__GGT_BUNDLES[name];const p=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=`assets/offline/${name}.js`;s.onload=()=>resolve(true);s.onerror=()=>reject(new Error(`Offline bundle failed: ${name}`));document.head.appendChild(s)});window.__GGT_BUNDLES[name]=p;return p}
     async loadJSON(url){const local=window.__GGT_OFFLINE?.[url];if(local&&typeof local==='object')return local;const response=await fetch(url);if(!response.ok)throw new Error(`${url}: ${response.status}`);return response.json()}
-    async fetchGzipText(url) {
+    async fetchGzipBytes(url) {
       const encoded=window.__GGT_OFFLINE?.[url];let packed;
       if(typeof encoded==='string'){const binary=atob(encoded),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);packed=bytes.buffer}
       else{const response=await fetch(url);if(!response.ok)throw new Error(`${url}: ${response.status}`);packed=await response.arrayBuffer()}
-      let raw;if(typeof DecompressionStream==='function'){const stream=new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'));raw=await new Response(stream).arrayBuffer()}
-      else if(window.fflate){raw=window.fflate.gunzipSync(new Uint8Array(packed))}
-      else throw new Error('This browser has no local gzip decoder');
-      return new TextDecoder().decode(raw);
+      if(typeof DecompressionStream==='function'){const stream=new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'));return new Uint8Array(await new Response(stream).arrayBuffer())}
+      if(window.fflate)return window.fflate.gunzipSync(new Uint8Array(packed));
+      throw new Error('This browser has no local gzip decoder');
     }
+    async fetchGzipText(url){return new TextDecoder().decode(await this.fetchGzipBytes(url))}
     loadTrackTexture(url) {
       if(this.trackTextureCache.has(url))return this.trackTextureCache.get(url);let source=window.__GGT_OFFLINE?.[url]||url,blobURL=null;
       if(typeof source==='string'&&source.startsWith('data:')){const comma=source.indexOf(','),mime=source.slice(5,source.indexOf(';')),binary=atob(source.slice(comma+1)),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);blobURL=URL.createObjectURL(new Blob([bytes],{type:mime}));source=blobURL}
@@ -300,14 +302,21 @@
       const alphaBlend=/Alpha-Diffuse|Blend|Transparent/i.test(shader),alphaTest=/AlphaTest/i.test(shader)?(info.floats?._Cutoff??.5):0;
       const m=new THREE.MeshLambertMaterial({name:id,map:main||null,color,transparent:alphaBlend||rgba[3]<.99,opacity:rgba[3],alphaTest,side:alphaBlend||alphaTest?THREE.DoubleSide:THREE.FrontSide,depthWrite:!alphaBlend});return m;
     }
+    async loadGeometryChunk(url,mats,readyBytes=null){
+      const bytes=await (readyBytes||this.fetchGzipBytes(url)),buffer=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),view=new DataView(buffer);
+      if(view.getUint32(0,false)!==0x47475431)throw new Error(`Invalid GGTB chunk: ${url}`);const headerLength=view.getUint32(4,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,8,headerLength)));let offset=(8+headerLength+3)&~3;
+      const positions=new Float32Array(buffer,offset,header.vertices*3);offset+=positions.byteLength;const normals=new Float32Array(buffer,offset,header.vertices*3);offset+=normals.byteLength;const uvs=new Float32Array(buffer,offset,header.vertices*2);offset+=uvs.byteLength;const indices=new Uint32Array(buffer,offset,header.indices);
+      const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.BufferAttribute(uvs,2));geometry.setIndex(new THREE.BufferAttribute(indices,1));header.groups.forEach(g=>geometry.addGroup(g.start,g.count,g.material));geometry.computeBoundingSphere();
+      const materials=header.materials.map(name=>mats[name]||mats.Default);const mesh=new THREE.Mesh(geometry,materials);mesh.name=header.groups[0]?.name||url;mesh.receiveShadow=true;mesh.castShadow=!this.mobileGPU&&header.materials.every(n=>!/HighEnd|LowEnd|Water/i.test(n));return mesh;
+    }
     loadTrackPrototype(c) {
       if(this.trackCache.has(c.id))return this.trackCache.get(c.id);
       const offlineReady=location.protocol==='file:'?this.ensureOfflineBundle(`track-${c.id}`):Promise.resolve();
       const promise=offlineReady.then(()=>this.loadJSON(`assets/tracks/${c.id}/manifest.json`)).then(async manifest=>{
-        const mats={},bar=$('#gameLoading .original-loading-bar i');await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));bar.style.animation='none';bar.style.width='18%';
+        const mats={},bar=$('#gameLoading .original-loading-bar i'),chunkBytes=manifest.objects.map(file=>this.fetchGzipBytes(`assets/tracks/${c.id}/${file}`));await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));bar.style.animation='none';bar.style.width='18%';
         const root=new THREE.Group();
-        for(let i=0;i<manifest.objects.length;i++){await new Promise(resolve=>setTimeout(resolve,0));const file=manifest.objects[i],obj=this.loader.parse(await this.fetchGzipText(`assets/tracks/${c.id}/${file}`));
-          obj.traverse(child=>{if(!child.isMesh)return;const replace=old=>mats[old?.name]||mats.Default||old;child.material=Array.isArray(child.material)?child.material.map(replace):replace(child.material);child.receiveShadow=true;const n=Array.isArray(child.material)?child.material[0]?.name:child.material?.name;child.castShadow=!/HighEnd|LowEnd|Water/i.test(n||'')});root.add(obj);bar.style.width=`${18+82*(i+1)/manifest.objects.length}%`}
+        const pending=manifest.objects.map((file,i)=>this.loadGeometryChunk(`assets/tracks/${c.id}/${file}`,mats,chunkBytes[i]));
+        for(let i=0;i<pending.length;i++){await new Promise(resolve=>setTimeout(resolve,0));root.add(await pending[i]);bar.style.width=`${18+82*(i+1)/pending.length}%`}
         return {root,manifest};
       });this.trackCache.set(c.id,promise);return promise;
     }
@@ -456,7 +465,7 @@
       this.renderer.render(this.scene,this.camera);
     }
   }
-  const threeRace=new ThreeRaceView($('#threeRace'));
+  const threeRace=new ThreeRaceView($('#threeRace'));requestTrackPrefetch=c=>threeRace.prefetch(c);
   window.addEventListener('resize',()=>threeRace.resize());
 
   class ThreeResultView {
