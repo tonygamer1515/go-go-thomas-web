@@ -211,7 +211,7 @@
   class ThreeRaceView {
     constructor(host) {
       this.host=host; this.renderer=null; this.scene=null; this.camera=null; this.active=false;
-      this.modelCache=new Map();this.trackCache=new Map();this.trackTextureCache=new Map();
+      this.modelCache=new Map();this.trackCache=new Map();this.trackTextureCache=new Map();this.skyboxCache=new Map();
       this.trainRoots={};this.cogMeshes=[];this.smoke=[];this.curves=null;this.syntheticObjects=[];
       this.worldScale=.12;this.loader=null;this.textureLoader=null;this.smokeTexture=null;this.prefetchTimer=0;this.mobileGPU=/iPad|iPhone|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&screen.width<1400);
     }
@@ -219,11 +219,11 @@
       if(this.renderer)return true;
       if(!window.THREE||!THREE.OBJLoader)return false;
       try {
-        this.renderer=new THREE.WebGLRenderer({antialias:!this.mobileGPU,alpha:false,powerPreference:'high-performance'});
+        this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
         this.renderer.setPixelRatio(Math.min(this.mobileGPU?1:2,window.devicePixelRatio||1));
         this.renderer.shadowMap.enabled=!this.mobileGPU;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding=THREE.sRGBEncoding;
-        this.renderer.toneMapping=this.mobileGPU?THREE.NoToneMapping:THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=this.mobileGPU?1:1.08;
+        this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=this.mobileGPU?1:1.08;
         this.host.appendChild(this.renderer.domElement);
         this.loader=new THREE.OBJLoader();this.textureLoader=new THREE.TextureLoader();if(location.protocol==='file:')this.textureLoader.crossOrigin=undefined;
         this.smokeTexture=this.makeSmokeTexture();
@@ -282,6 +282,10 @@
       const p=location.protocol==='file:'&&source===url?new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const t=new THREE.Texture(img);t.needsUpdate=true;resolve(finish(t))};img.onerror=reject;img.src=url}):new Promise((resolve,reject)=>this.textureLoader.load(source,t=>resolve(finish(t)),undefined,e=>{if(blobURL)URL.revokeObjectURL(blobURL);reject(e)}));
       this.trackTextureCache.set(url,p);return p;
     }
+    loadSkyboxCube(info){
+      if(!info)return Promise.resolve(null);const key=info.material+(this.mobileGPU?'-mobile':'-full');if(this.skyboxCache.has(key))return this.skyboxCache.get(key);const faceSet=this.mobileGPU?info.mobileFaces:info.faces,urls=['right','left','up','down','front','back'].map(face=>faceSet[face]);
+      const p=new Promise((resolve,reject)=>{const loader=new THREE.CubeTextureLoader();if(location.protocol==='file:')loader.crossOrigin=undefined;loader.load(urls,cube=>{cube.encoding=THREE.sRGBEncoding;cube.magFilter=THREE.LinearFilter;cube.minFilter=THREE.LinearMipmapLinearFilter;cube.generateMipmaps=true;resolve(cube)},undefined,reject)});this.skyboxCache.set(key,p);return p;
+    }
     async makeTrackMaterial(id,info) {
       const entries=Object.entries(info.textures||{}),loaded={};
       await Promise.all(entries.map(async([prop,data])=>{const textureFile=this.mobileGPU&&data.mobileFile?data.mobileFile:data.file,base=await this.loadTrackTexture(`assets/tracks/${textureFile}`),t=base.clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(data.scale?.[0]||1,data.scale?.[1]||1);t.offset.set(data.offset?.[0]||0,data.offset?.[1]||0);loaded[prop]=t}));
@@ -313,18 +317,18 @@
       if(this.trackCache.has(c.id))return this.trackCache.get(c.id);
       const offlineReady=location.protocol==='file:'?this.ensureOfflineBundle(`track-${c.id}`):Promise.resolve();
       const promise=offlineReady.then(()=>this.loadJSON(`assets/tracks/${c.id}/manifest.json`)).then(async manifest=>{
-        const mats={},bar=$('#gameLoading .original-loading-bar i'),chunkBytes=manifest.objects.map(file=>this.fetchGzipBytes(`assets/tracks/${c.id}/${file}`));await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));bar.style.animation='none';bar.style.width='18%';
+        const mats={},bar=$('#gameLoading .original-loading-bar i'),skyboxPromise=this.loadSkyboxCube(manifest.skybox),chunkBytes=manifest.objects.map(file=>this.fetchGzipBytes(`assets/tracks/${c.id}/${file}`));await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));bar.style.animation='none';bar.style.width='18%';
         const root=new THREE.Group();
         const pending=manifest.objects.map((file,i)=>this.loadGeometryChunk(`assets/tracks/${c.id}/${file}`,mats,chunkBytes[i]));
         for(let i=0;i<pending.length;i++){await new Promise(resolve=>setTimeout(resolve,0));root.add(await pending[i]);bar.style.width=`${18+82*(i+1)/pending.length}%`}
-        return {root,manifest};
+        return {root,manifest,skybox:await skyboxPromise};
       });this.trackCache.set(c.id,promise);return promise;
     }
     loadOriginalTrack(c,target,session) {
       const sceneAtStart=this.scene;
-      return this.loadTrackPrototype(c).then(({root,manifest})=>{
+      return this.loadTrackPrototype(c).then(({root,manifest,skybox})=>{
         if(!race||race.session!==session||this.scene!==sceneAtStart)return;
-        const instance=root.clone(true);instance.name=`Original ${c.track} Unity scene`;this.scene.add(instance);this.originalTrack=instance;
+        if(skybox)this.scene.background=skybox;this.scene.fog=null;const instance=root.clone(true);instance.name=`Original ${c.track} Unity scene`;this.scene.add(instance);this.originalTrack=instance;
         const curveFrom=points=>new PolylineRoute(points);
         this.curves={p1:curveFrom(manifest.lane1),p2:curveFrom(manifest.lane2)};this.cameraProfile=manifest.camera||{offset:[16,11.5,15],lookOffset:[1.5,1.2,0],fov:60};this.camera.fov=this.cameraProfile.fov||60;this.camera.updateProjectionMatrix();
         // Train.MoveBy in the APK consumes real path units. Replace the temporary
@@ -406,13 +410,13 @@
         this.fetchGzipText(`assets/models/${c.id}.obj.gz`).then(text=>this.loader.parse(text)),
         this.loadTrackTexture(`assets/textures3d/${c.id}.jpg`)
       ])).then(([obj,texture])=>{
-        texture.encoding=THREE.sRGBEncoding;texture.anisotropy=Math.min(8,this.renderer.capabilities.getMaxAnisotropy());
+        texture.encoding=THREE.sRGBEncoding;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.anisotropy=Math.min(this.mobileGPU?4:8,this.renderer.capabilities.getMaxAnisotropy());
         // Unity material is AlphaTest-Diffuse. Lambert lighting and the recovered
         // per-engine tint reproduce that legacy mobile shader more closely than PBR.
         const tint={thomas:0xd9d9d9,james:0xcacaca}[c.id]||0xffffff;
-        const material=new THREE.MeshLambertMaterial({map:texture,color:tint,alphaTest:.5,side:THREE.DoubleSide});
+        const material=new THREE.MeshPhongMaterial({map:texture,color:tint,alphaTest:.5,side:THREE.FrontSide,shininess:0,specular:0x000000,flatShading:false});
         obj.traverse(child=>{
-          if(!child.isMesh)return;child.material=material;child.castShadow=true;child.receiveShadow=true;
+          if(!child.isMesh)return;child.geometry.normalizeNormals();child.material=material;child.castShadow=true;child.receiveShadow=true;
           // The APK stores each eyeball as its own mesh. Give it a local pivot so the
           // original textured pupil can glance around during the race.
           if(/^Eye_(Right|Left|Righht|left)/i.test(child.name)){
@@ -470,7 +474,7 @@
 
   class ThreeResultView {
     constructor(host){this.host=host;this.renderer=null;this.scene=null;this.camera=null;this.model=null;this.eyes=[];this.eyelids=[];this.active=false;this.raf=0}
-    init(){if(this.renderer)return;this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:!threeRace.mobileGPU,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(threeRace.mobileGPU?1:2,devicePixelRatio||1));this.renderer.shadowMap.enabled=!threeRace.mobileGPU;this.renderer.outputEncoding=THREE.sRGBEncoding;this.host.appendChild(this.renderer.domElement)}
+    init(){if(this.renderer)return;this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(threeRace.mobileGPU?1:2,devicePixelRatio||1));this.renderer.shadowMap.enabled=!threeRace.mobileGPU;this.renderer.outputEncoding=THREE.sRGBEncoding;this.host.appendChild(this.renderer.domElement)}
     resize(){if(!this.renderer)return;const r=this.host.getBoundingClientRect();this.renderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false);if(this.camera){this.camera.aspect=Math.max(1,r.width)/Math.max(1,r.height);this.camera.updateProjectionMatrix()}}
     start(c){this.init();this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(34,1,.1,100);this.camera.position.set(7,5.2,10);this.camera.lookAt(0,1.35,0);this.scene.add(new THREE.HemisphereLight(0xe8f8ff,0x3d5431,1.55));const sun=new THREE.DirectionalLight(0xfff1d2,2);sun.position.set(-5,10,8);sun.castShadow=true;this.scene.add(sun);const floor=new THREE.Mesh(new THREE.CircleGeometry(5.2,48),new THREE.ShadowMaterial({opacity:.24}));floor.rotation.x=-Math.PI/2;floor.position.y=-.05;floor.receiveShadow=true;this.scene.add(floor);this.model=null;this.eyes=[];this.eyelids=[];this.active=true;this.resize();$('#resultScreen').classList.remove('result-3d-ready');
       threeRace.loadEngine(c).then(proto=>{if(!this.active)return;this.model=proto.clone(true);this.model.rotation.y=-.5;this.model.traverse(x=>{if(x.userData?.isEye)this.eyes.push(x);if(x.userData?.isEyelid)this.eyelids.push(x)});this.scene.add(this.model);$('#resultScreen').classList.add('result-3d-ready')}).catch(()=>{});if(!this.raf)this.raf=requestAnimationFrame(t=>this.tick(t))}

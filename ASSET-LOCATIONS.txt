@@ -25,6 +25,9 @@ Original course geometry and route/camera manifests
 Original course shader textures
   assets/tracks/textures/*.png
 
+Original level skyboxes (StarryNight, DawnDusk, Sunny2)
+  assets/skyboxes/
+
 UI, portraits, loading art, trophies and fallback renders
   assets/images/
 
