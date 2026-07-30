@@ -106,7 +106,7 @@
     let finished=false;const finish=()=>{if(finished)return;finished=true;stopOpeningMedia();onDone()};openingVideo.onended=finish;openingVideo.onerror=finish;openingFallback=setTimeout(finish,video.includes('budge-splash')?12000:90000);
     openingVideo.play().catch(finish);if(save.settings.sound)openingAudio.play().catch(()=>{});
   }
-  function finishOriginalOpening(){clearTimeout(titleTimer);stopOpeningMedia();setMusic('menu');updateStats();showScreen('modeScreen');sfx('mainmenu-intro',.88)}
+  function finishOriginalOpening(){clearTimeout(titleTimer);stopOpeningMedia();setMusic('menu');updateStats();showScreen('modeScreen');requestTrackPrefetch(CHARACTERS[state.selected]);sfx('mainmenu-intro',.88)}
   function showOriginalTitle(){showScreen('titleScreen');titleTimer=setTimeout(()=>playOpeningMovie('assets/video/intro.mp4','assets/audio/intro-en.mp3',finishOriginalOpening,true),3000)}
   $('#bootStart').addEventListener('click',()=>{if(state.openingStarted)return;state.openingStarted=true;tapSound();playOpeningMovie('assets/video/budge-splash.mp4','assets/audio/budge-splash.mp3',showOriginalTitle,false)});
   $('#skipOpening').addEventListener('click',()=>{tapSound();const done=openingDone;stopOpeningMedia();done?.()});
@@ -219,11 +219,11 @@
       if(this.renderer)return true;
       if(!window.THREE||!THREE.OBJLoader)return false;
       try {
-        this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
-        this.renderer.setPixelRatio(Math.min(this.mobileGPU?1.25:2,window.devicePixelRatio||1));
-        this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=this.mobileGPU?THREE.BasicShadowMap:THREE.PCFSoftShadowMap;
+        this.renderer=new THREE.WebGLRenderer({antialias:!this.mobileGPU,alpha:false,powerPreference:'high-performance'});
+        this.renderer.setPixelRatio(Math.min(this.mobileGPU?1:2,window.devicePixelRatio||1));
+        this.renderer.shadowMap.enabled=!this.mobileGPU;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding=THREE.sRGBEncoding;
-        this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.08;
+        this.renderer.toneMapping=this.mobileGPU?THREE.NoToneMapping:THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=this.mobileGPU?1:1.08;
         this.host.appendChild(this.renderer.domElement);
         this.loader=new THREE.OBJLoader();this.textureLoader=new THREE.TextureLoader();if(location.protocol==='file:')this.textureLoader.crossOrigin=undefined;
         this.smokeTexture=this.makeSmokeTexture();
@@ -284,7 +284,7 @@
     }
     async makeTrackMaterial(id,info) {
       const entries=Object.entries(info.textures||{}),loaded={};
-      await Promise.all(entries.map(async([prop,data])=>{const base=await this.loadTrackTexture(`assets/tracks/${data.file}`),t=base.clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(data.scale?.[0]||1,data.scale?.[1]||1);t.offset.set(data.offset?.[0]||0,data.offset?.[1]||0);loaded[prop]=t}));
+      await Promise.all(entries.map(async([prop,data])=>{const textureFile=this.mobileGPU&&data.mobileFile?data.mobileFile:data.file,base=await this.loadTrackTexture(`assets/tracks/${textureFile}`),t=base.clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(data.scale?.[0]||1,data.scale?.[1]||1);t.offset.set(data.offset?.[0]||0,data.offset?.[1]||0);loaded[prop]=t}));
       const rgba=info.colors?._Color||[1,1,1,1],color=new THREE.Color(rgba[0],rgba[1],rgba[2]),shader=info.shader||'Diffuse';
       if(shader==='FirstPass'&&loaded._Control){
         const splats=[0,1,2,3].map(i=>({i,tex:loaded[`_Splat${i}`],cfg:info.textures[`_Splat${i}`]})).filter(x=>x.tex);
@@ -470,7 +470,7 @@
 
   class ThreeResultView {
     constructor(host){this.host=host;this.renderer=null;this.scene=null;this.camera=null;this.model=null;this.eyes=[];this.eyelids=[];this.active=false;this.raf=0}
-    init(){if(this.renderer)return;this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));this.renderer.shadowMap.enabled=true;this.renderer.outputEncoding=THREE.sRGBEncoding;this.host.appendChild(this.renderer.domElement)}
+    init(){if(this.renderer)return;this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:!threeRace.mobileGPU,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(threeRace.mobileGPU?1:2,devicePixelRatio||1));this.renderer.shadowMap.enabled=!threeRace.mobileGPU;this.renderer.outputEncoding=THREE.sRGBEncoding;this.host.appendChild(this.renderer.domElement)}
     resize(){if(!this.renderer)return;const r=this.host.getBoundingClientRect();this.renderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false);if(this.camera){this.camera.aspect=Math.max(1,r.width)/Math.max(1,r.height);this.camera.updateProjectionMatrix()}}
     start(c){this.init();this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(34,1,.1,100);this.camera.position.set(7,5.2,10);this.camera.lookAt(0,1.35,0);this.scene.add(new THREE.HemisphereLight(0xe8f8ff,0x3d5431,1.55));const sun=new THREE.DirectionalLight(0xfff1d2,2);sun.position.set(-5,10,8);sun.castShadow=true;this.scene.add(sun);const floor=new THREE.Mesh(new THREE.CircleGeometry(5.2,48),new THREE.ShadowMaterial({opacity:.24}));floor.rotation.x=-Math.PI/2;floor.position.y=-.05;floor.receiveShadow=true;this.scene.add(floor);this.model=null;this.eyes=[];this.eyelids=[];this.active=true;this.resize();$('#resultScreen').classList.remove('result-3d-ready');
       threeRace.loadEngine(c).then(proto=>{if(!this.active)return;this.model=proto.clone(true);this.model.rotation.y=-.5;this.model.traverse(x=>{if(x.userData?.isEye)this.eyes.push(x);if(x.userData?.isEyelid)this.eyelids.push(x)});this.scene.add(this.model);$('#resultScreen').classList.add('result-3d-ready')}).catch(()=>{});if(!this.raf)this.raf=requestAnimationFrame(t=>this.tick(t))}

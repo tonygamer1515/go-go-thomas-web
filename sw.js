@@ -1,4 +1,4 @@
-const CACHE = 'gogo-thomas-1-1-v3';
+const CACHE = 'gogo-thomas-1-1-v4';
 const SHELL = [
   './', './index.html', './styles.css', './game.js', './manifest.webmanifest',
   './assets/vendor/three.min.js', './assets/vendor/OBJLoader.js', './assets/vendor/fflate.min.js',
