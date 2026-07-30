@@ -1,0 +1,15 @@
+{
+  "name": "Thomas & Friends: Go Go Thomas!",
+  "short_name": "Go Go Thomas",
+  "description": "Offline-capable browser preservation port of Go Go Thomas 1.1.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#ffffff",
+  "theme_color": "#078fd3",
+  "icons": [
+    {"src": "assets/images/app-icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "assets/images/app-icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

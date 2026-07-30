@@ -1,0 +1,12 @@
+GO GO THOMAS — FULLY OFFLINE WINDOWS START
+
+1. Keep this entire folder together.
+2. Double-click start-windows.bat.
+3. Your browser opens http://127.0.0.1:8080/.
+4. Keep the PowerShell window open while playing.
+5. Press Ctrl+C in that window when finished.
+
+127.0.0.1 is your own computer. The game does not connect to the internet.
+No installation, Python, Node.js, or account is required.
+
+The original Android APK is included as GoGoThomas-Android-1.1.apk.

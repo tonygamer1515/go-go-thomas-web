@@ -1,0 +1,51 @@
+GO GO THOMAS — LOCAL ASSET LOCATIONS
+
+All files below are inside this folder and work without internet access.
+
+Original Android package
+  GoGoThomas-Android-1.1.apk
+
+Original engine meshes, compressed OBJ
+  assets/models/thomas.obj.gz
+  assets/models/percy.obj.gz
+  assets/models/james.obj.gz
+  assets/models/emily.obj.gz
+  assets/models/toby.obj.gz
+
+Original engine textures
+  assets/textures3d/*.jpg
+
+Original course geometry and route/camera manifests
+  assets/tracks/thomas/
+  assets/tracks/percy/
+  assets/tracks/james/
+  assets/tracks/emily/
+  assets/tracks/toby/
+
+Original course shader textures
+  assets/tracks/textures/*.png
+
+UI, portraits, loading art, trophies and fallback renders
+  assets/images/
+
+English voices, music and sound effects
+  assets/audio/
+
+Original opening videos
+  assets/video/
+
+Original embedded fonts
+  assets/fonts/
+
+Local Three.js runtime and decompressor
+  assets/vendor/
+
+Offline file:// geometry bundles
+  assets/offline/
+
+Windows offline launcher
+  start-windows.bat
+  serve-windows.ps1
+
+Recommended Windows start: double-click start-windows.bat.
+The address 127.0.0.1 is your own PC; no files are downloaded from the internet.

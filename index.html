@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0a7dc0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Go Go Thomas">
+  <title>Go Go Thomas! — Web Preservation Port</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+  <link rel="icon" href="assets/images/app-icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app" aria-live="polite">
+    <section id="bootScreen" class="screen boot-screen active" aria-label="Start original opening sequence">
+      <img class="boot-budge-logo" src="assets/images/budge-logo.png" alt="Budge Studios">
+      <button id="bootStart" class="tap-to-play panel-button" type="button">
+        <span class="play-triangle">▶</span><span>TAP TO START</span>
+      </button>
+    </section>
+
+    <section id="movieScreen" class="screen movie-screen" aria-label="Original opening movie">
+      <video id="openingVideo" playsinline preload="auto"></video>
+      <button id="skipOpening" class="skip-opening" type="button" aria-label="Skip opening"><img src="assets/images/skip-button.png" alt="Skip"></button>
+    </section>
+
+    <section id="titleScreen" class="screen title-screen" aria-label="Original title screen">
+      <img class="title-logo" src="assets/images/logo.png" alt="Go Go Thomas! Thomas & Friends">
+    </section>
+
+    <section id="modeScreen" class="screen menu-scene" aria-label="Choose game mode">
+      <div class="sky-wash"></div>
+      <button class="round-ui settings-open top-right" type="button" aria-label="Open settings">⚙</button>
+      <img class="mini-logo" src="assets/images/logo.png" alt="Go Go Thomas!">
+      <div class="mode-panel paper-panel">
+        <p class="eyebrow">FULL STEAM AHEAD!</p>
+        <h1>CHOOSE A RACE</h1>
+        <div class="mode-grid">
+          <button class="mode-card" data-mode="one" type="button">
+            <span class="mode-number">1</span>
+            <span class="mode-copy"><strong>ONE PLAYER</strong><small>Race a rival engine</small></span>
+            <span class="mode-arrow">▶</span>
+          </button>
+          <button class="mode-card two" data-mode="two" type="button">
+            <span class="mode-number">2</span>
+            <span class="mode-copy"><strong>TWO PLAYERS</strong><small>Share this screen</small></span>
+            <span class="mode-arrow">▶</span>
+          </button>
+        </div>
+        <div class="menu-stats"><span>⚙ <b id="cogTotal">0</b> COGS</span><span>🏆 <b id="trophyTotal">0</b>/25 TROPHIES</span></div>
+      </div>
+      <img class="menu-engine" src="assets/images/train-thomas.png" alt="Thomas">
+    </section>
+
+    <section id="selectScreen" class="screen select-screen" aria-label="Choose your engine">
+      <div class="select-backdrop"></div>
+      <header class="screen-toolbar">
+        <button class="round-ui back-to-mode" type="button" aria-label="Back">‹</button>
+        <div><p class="eyebrow" id="selectKicker">ONE PLAYER</p><h1>CHOOSE YOUR ENGINE</h1></div>
+        <button class="round-ui settings-open" type="button" aria-label="Open settings">⚙</button>
+      </header>
+
+      <div id="onePlayerPicker" class="one-player-picker">
+        <button class="carousel-arrow prev-character" type="button" aria-label="Previous engine">‹</button>
+        <article class="hero-card" id="heroCard">
+          <img id="heroTrack" src="assets/images/track-thomas.jpg" alt="Thomas's countryside track">
+          <div class="card-gloss"></div>
+          <div class="engine-nameplate"><span id="heroName">THOMAS</span><small id="heroTrackName">SODOR COUNTRYSIDE</small></div>
+          <img id="heroTrain" class="hero-train" src="assets/images/train-thomas.png" alt="Thomas">
+          <div id="heroBoost" class="boost-label">⚡ STEAM BOOST</div>
+        </article>
+        <button class="carousel-arrow next-character" type="button" aria-label="Next engine">›</button>
+        <div id="characterStrip" class="character-strip" role="listbox" aria-label="Engines"></div>
+        <div class="trophy-row"><span>BEST TROPHIES</span><div id="heroTrophies" class="trophy-pips"></div></div>
+        <button id="onePlayerGo" class="big-go" type="button"><img src="assets/images/go-button.png" alt=""><span>GO!</span></button>
+      </div>
+
+      <div id="twoPlayerPicker" class="two-player-picker" hidden>
+        <div class="versus-pickers">
+          <article class="player-picker p1">
+            <div class="player-ribbon">PLAYER 1</div>
+            <button class="picker-arrow p1-prev" type="button" aria-label="Player 1 previous engine">‹</button>
+            <img id="p1Portrait" src="assets/images/portrait-thomas.png" alt="Thomas">
+            <strong id="p1Name">THOMAS</strong>
+            <button class="picker-arrow p1-next" type="button" aria-label="Player 1 next engine">›</button>
+            <small>SPACE / A TO STEAM</small>
+          </article>
+          <div class="versus-badge">VS</div>
+          <article class="player-picker p2">
+            <div class="player-ribbon">PLAYER 2</div>
+            <button class="picker-arrow p2-prev" type="button" aria-label="Player 2 previous engine">‹</button>
+            <img id="p2Portrait" src="assets/images/portrait-percy.png" alt="Percy">
+            <strong id="p2Name">PERCY</strong>
+            <button class="picker-arrow p2-next" type="button" aria-label="Player 2 next engine">›</button>
+            <small>ENTER / L TO STEAM</small>
+          </article>
+        </div>
+        <button id="twoPlayerGo" class="big-go two-go" type="button"><img src="assets/images/go-button.png" alt=""><span>GO!</span></button>
+      </div>
+    </section>
+
+    <section id="raceScreen" class="screen race-screen" aria-label="Race">
+      <div id="threeRace" aria-hidden="true"></div>
+      <canvas id="raceCanvas" aria-hidden="true"></canvas>
+      <div id="gameLoading" class="game-loading" hidden>
+        <img src="assets/images/splash.jpg" alt="Thomas & Friends Go Go Thomas loading screen">
+        <div class="original-loading-bar"><i></i></div>
+        <b>LOADING…</b>
+      </div>
+      <div class="race-vignette"></div>
+      <div class="race-topbar">
+        <button id="pauseButton" class="round-ui pause" type="button" aria-label="Pause">Ⅱ</button>
+        <div class="progress-track" aria-label="Race progress">
+          <div class="finish-flag">🏁</div>
+          <div id="p1Marker" class="progress-marker p1-marker"><img src="assets/images/portrait-thomas.png" alt="Player 1"></div>
+          <div id="p2Marker" class="progress-marker p2-marker"><img src="assets/images/portrait-percy.png" alt="Player 2"></div>
+        </div>
+        <div class="race-cogs">⚙ <span id="raceCogCount">0</span></div>
+      </div>
+      <div id="countdown" class="countdown" aria-live="assertive"></div>
+      <div id="raceAnnouncement" class="race-announcement"></div>
+      <div id="raceControls" class="race-controls">
+        <div class="control-cluster p1-controls">
+          <span class="control-label">P1</span>
+          <button class="boost-control" data-player="p1" type="button" aria-label="Player 1 boost"><span>⚡</span><i></i></button>
+          <button class="steam-control" data-player="p1" type="button"><b>TAP!</b><small>STEAM</small></button>
+        </div>
+        <div class="control-cluster p2-controls">
+          <span class="control-label">P2</span>
+          <button class="boost-control" data-player="p2" type="button" aria-label="Player 2 boost"><span>⚡</span><i></i></button>
+          <button class="steam-control" data-player="p2" type="button"><b>TAP!</b><small>STEAM</small></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="resultScreen" class="screen result-screen" aria-label="Race result">
+      <div class="result-shade"></div>
+      <div id="confetti" class="confetti" aria-hidden="true"></div>
+      <div class="result-panel paper-panel">
+        <p class="eyebrow" id="resultKicker">PHOTO FINISH!</p>
+        <h1 id="resultTitle">YOU WIN!</h1>
+        <div id="resultThree" class="result-three" aria-label="3D winning engine"></div>
+        <img id="resultTrain" class="result-train" src="assets/images/train-thomas.png" alt="Thomas">
+        <div class="podium-glow"></div>
+        <img id="resultTrophy" class="result-trophy" src="assets/images/trophy-thomas.png" alt="Gold Thomas trophy">
+        <p id="resultSummary">A brilliant race!</p>
+        <div class="result-stats"><span>TIME <b id="resultTime">0:00</b></span><span>COGS <b id="resultCogs">+0</b></span></div>
+        <div class="result-actions">
+          <button id="raceAgain" class="action-button red" type="button">↻ RACE AGAIN</button>
+          <button id="resultHome" class="action-button green" type="button">⌂ HOME</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="settingsModal" class="modal" hidden>
+      <div class="modal-card paper-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <button class="modal-close" data-close="settingsModal" type="button" aria-label="Close">×</button>
+        <p class="eyebrow">SIGNAL BOX</p><h2 id="settingsTitle">SETTINGS</h2>
+        <label class="switch-row"><span>♫ MUSIC</span><input id="musicToggle" type="checkbox" checked><i></i></label>
+        <label class="switch-row"><span>🔊 SOUND</span><input id="soundToggle" type="checkbox" checked><i></i></label>
+        <label class="switch-row"><span>✨ MOTION FX</span><input id="motionToggle" type="checkbox" checked><i></i></label>
+        <button id="fullscreenButton" class="wide-button" type="button">⛶ FULL SCREEN</button>
+        <p class="about-copy">A browser preservation remake of the 2014 Android release, rebuilt from the supplied APK's gameplay configuration and original art/audio assets.</p>
+      </div>
+    </div>
+
+    <div id="pauseModal" class="modal" hidden>
+      <div class="modal-card pause-card paper-panel" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+        <p class="eyebrow">BRAKES ON</p><h2 id="pauseTitle">PAUSED</h2>
+        <button id="resumeButton" class="wide-button green" type="button">▶ KEEP RACING</button>
+        <button id="restartButton" class="wide-button yellow" type="button">↻ RESTART</button>
+        <button id="quitRaceButton" class="wide-button red" type="button">⌂ QUIT TO MENU</button>
+      </div>
+    </div>
+  </main>
+  <div id="rotateNotice"><div>↻</div><b>TURN YOUR DEVICE</b><span>Go Go Thomas! plays best in landscape.</span></div>
+  <script src="assets/vendor/three.min.js"></script>
+  <script src="assets/vendor/OBJLoader.js"></script>
+  <script src="assets/vendor/fflate.min.js"></script>
+  <script src="assets/offline-data.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

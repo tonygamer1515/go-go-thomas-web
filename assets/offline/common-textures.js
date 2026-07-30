@@ -1,0 +1,1 @@
+window.__GGT_OFFLINE=window.__GGT_OFFLINE||{};
