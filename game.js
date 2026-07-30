@@ -302,11 +302,12 @@
     }
     loadTrackPrototype(c) {
       if(this.trackCache.has(c.id))return this.trackCache.get(c.id);
-      const promise=Promise.all([this.ensureOfflineBundle('common-textures'),this.ensureOfflineBundle(`track-${c.id}`)]).then(()=>this.loadJSON(`assets/tracks/${c.id}/manifest.json`)).then(async manifest=>{
-        const mats={};await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));
+      const offlineReady=location.protocol==='file:'?this.ensureOfflineBundle(`track-${c.id}`):Promise.resolve();
+      const promise=offlineReady.then(()=>this.loadJSON(`assets/tracks/${c.id}/manifest.json`)).then(async manifest=>{
+        const mats={},bar=$('#gameLoading .original-loading-bar i');await Promise.all(Object.entries(manifest.materials).map(async([id,info])=>mats[id]=await this.makeTrackMaterial(id,info)));bar.style.animation='none';bar.style.width='18%';
         const root=new THREE.Group();
-        await Promise.all(manifest.objects.map(async file=>{const obj=this.loader.parse(await this.fetchGzipText(`assets/tracks/${c.id}/${file}`));
-          obj.traverse(child=>{if(!child.isMesh)return;const replace=old=>mats[old?.name]||mats.Default||old;child.material=Array.isArray(child.material)?child.material.map(replace):replace(child.material);child.receiveShadow=true;const n=Array.isArray(child.material)?child.material[0]?.name:child.material?.name;child.castShadow=!/HighEnd|LowEnd|Water/i.test(n||'')});root.add(obj)}));
+        for(let i=0;i<manifest.objects.length;i++){await new Promise(resolve=>setTimeout(resolve,0));const file=manifest.objects[i],obj=this.loader.parse(await this.fetchGzipText(`assets/tracks/${c.id}/${file}`));
+          obj.traverse(child=>{if(!child.isMesh)return;const replace=old=>mats[old?.name]||mats.Default||old;child.material=Array.isArray(child.material)?child.material.map(replace):replace(child.material);child.receiveShadow=true;const n=Array.isArray(child.material)?child.material[0]?.name:child.material?.name;child.castShadow=!/HighEnd|LowEnd|Water/i.test(n||'')});root.add(obj);bar.style.width=`${18+82*(i+1)/manifest.objects.length}%`}
         return {root,manifest};
       });this.trackCache.set(c.id,promise);return promise;
     }
@@ -391,7 +392,8 @@
     }
     loadEngine(c) {
       if(this.modelCache.has(c.id))return this.modelCache.get(c.id);
-      const promise=this.ensureOfflineBundle(`model-${c.id}`).then(()=>Promise.all([
+      const modelReady=location.protocol==='file:'?this.ensureOfflineBundle(`model-${c.id}`):Promise.resolve();
+      const promise=modelReady.then(()=>Promise.all([
         this.fetchGzipText(`assets/models/${c.id}.obj.gz`).then(text=>this.loader.parse(text)),
         this.loadTrackTexture(`assets/textures3d/${c.id}.jpg`)
       ])).then(([obj,texture])=>{
@@ -505,7 +507,7 @@
     $('#raceCogCount').textContent='0'; updateRaceControls();
     showScreen('raceScreen'); resizeCanvas(); const trackReady=threeRace.start(race); setMusic('race');
     if (!raceFrame) raceFrame=requestAnimationFrame(raceLoop);
-    const loading=$('#gameLoading');loading.hidden=false;
+    const loading=$('#gameLoading'),loadingBar=$('.original-loading-bar i',loading);loadingBar.style.animation='';loadingBar.style.width='';loading.hidden=false;
     Promise.race([trackReady,new Promise(resolve=>setTimeout(resolve,12000))]).then(()=>{
       if(race?.session!==session)return;loading.hidden=true;
       schedule(250,()=>{if(race?.session===session){countdownPop('3');sfx('start',.85)}});
